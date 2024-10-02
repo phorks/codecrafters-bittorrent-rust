@@ -128,8 +128,8 @@ fn main() {
         let tfile = TorrentFile::from_file(&args[4]);
         let peer = tfile.find_peers().next().unwrap();
         let mut output = fs::File::create(output).unwrap();
+        let mut connection = peer.handshake();
         for piece in 0..tfile.info.n_pieces() as u32 {
-            let mut connection = peer.handshake();
             // println!("Downloading {}th piece", piece);
             connection.download_piece(piece, &mut output);
         }

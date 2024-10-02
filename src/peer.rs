@@ -49,6 +49,7 @@ impl<'a> Peer<'a> {
             peer_id,
             stream,
             peer: self,
+            initiated: false,
         }
     }
 }
@@ -60,6 +61,7 @@ pub struct PeerConnection<'a> {
     pub peer_id: [u8; 20],
     stream: TcpStream,
     peer: &'a Peer<'a>,
+    initiated: bool,
 }
 
 impl<'a> PeerConnection<'a> {
@@ -139,15 +141,19 @@ impl<'a> PeerConnection<'a> {
     where
         W: Write,
     {
-        let PeerMessage::Bitfield = self.receive_message() else {
-            panic!("Didn't receive the bitfield message")
-        };
+        if !self.initiated {
+            let PeerMessage::Bitfield = self.receive_message() else {
+                panic!("Didn't receive the bitfield message")
+            };
 
-        self.send_message(PeerMessage::Interested);
+            self.send_message(PeerMessage::Interested);
 
-        let PeerMessage::Unchoke = self.receive_message() else {
-            panic!("Didn't receive the unchoke message")
-        };
+            let PeerMessage::Unchoke = self.receive_message() else {
+                panic!("Didn't receive the unchoke message")
+            };
+
+            self.initiated = true;
+        }
 
         let plength = self.peer.file.info.nth_plength(index as usize) as u32;
 
