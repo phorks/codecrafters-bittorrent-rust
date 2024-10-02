@@ -3,13 +3,11 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{self, Map};
 use sha1::{Digest, Sha1};
 use std::{
-    cell::LazyCell,
     env, fs,
     io::{Read, Write},
     net::{Ipv4Addr, SocketAddrV4, TcpStream},
     str::FromStr,
 };
-use tokio::net::TcpSocket;
 
 const PEER_ID: &str = "00112233445566778899";
 const PROTOCOL_STRING: &str = "BitTorrent protocol";
