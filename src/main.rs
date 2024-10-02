@@ -6,7 +6,6 @@ use std::{
     env, fs,
     io::{Cursor, Read, Write},
     net::{Ipv4Addr, SocketAddrV4, TcpStream},
-    process::exit,
     str::FromStr,
 };
 
