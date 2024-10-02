@@ -23,11 +23,11 @@ impl<'a> Peer<'a> {
     pub fn handshake(&self) -> PeerConnection {
         let mut stream = TcpStream::connect(self.addr).unwrap();
 
-        stream.write(&[PROTOCOL_STRING.len() as u8]).unwrap();
-        stream.write(PROTOCOL_STRING.as_bytes()).unwrap();
-        stream.write(&[0; 8]).unwrap();
-        stream.write(&self.file.info.hash()).unwrap();
-        stream.write(PEER_ID.as_bytes()).unwrap();
+        stream.write_all(&[PROTOCOL_STRING.len() as u8]).unwrap();
+        stream.write_all(PROTOCOL_STRING.as_bytes()).unwrap();
+        stream.write_all(&[0; 8]).unwrap();
+        stream.write_all(&self.file.info.hash()).unwrap();
+        stream.write_all(PEER_ID.as_bytes()).unwrap();
         stream.flush().unwrap();
 
         let mut n_pstring = [0u8];
@@ -119,18 +119,20 @@ impl<'a> PeerConnection<'a> {
         match message {
             PeerMessage::Interested => {
                 // length
-                self.stream.write(&1u32.to_be_bytes()).unwrap();
+                self.stream.write_all(&1u32.to_be_bytes()).unwrap();
                 // id
-                self.stream.write(&[2u8]).unwrap();
+                self.stream.write_all(&[2u8]).unwrap();
             }
             PeerMessage::Request(payload) => {
                 // length
-                self.stream.write(&13u32.to_be_bytes()).unwrap();
+                self.stream.write_all(&13u32.to_be_bytes()).unwrap();
                 // id
-                self.stream.write(&[6u8]).unwrap();
-                self.stream.write(&payload.index.to_be_bytes()).unwrap();
-                self.stream.write(&payload.begin.to_be_bytes()).unwrap();
-                self.stream.write(&payload.length.to_be_bytes()).unwrap();
+                self.stream.write_all(&[6u8]).unwrap();
+                self.stream.write_all(&payload.index.to_be_bytes()).unwrap();
+                self.stream.write_all(&payload.begin.to_be_bytes()).unwrap();
+                self.stream
+                    .write_all(&payload.length.to_be_bytes())
+                    .unwrap();
             }
             _ => panic!("Unabled to send the message"),
         };
