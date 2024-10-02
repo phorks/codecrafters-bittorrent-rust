@@ -28,6 +28,7 @@ impl<'a> Peer<'a> {
         stream.write(&[0; 8]).unwrap();
         stream.write(&self.file.info.hash()).unwrap();
         stream.write(PEER_ID.as_bytes()).unwrap();
+        stream.flush().unwrap();
 
         let mut n_pstring = [0u8];
         stream.read_exact(&mut n_pstring).unwrap();
