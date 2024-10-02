@@ -148,6 +148,9 @@ impl<'a> Peer<'a> {
         let mut pstring = vec![0u8; n_pstring[0] as usize];
         stream.read_exact(&mut pstring).unwrap();
 
+        // eight reserved bytes, which are all set to zero (8 bytes)
+        std::io::copy(&mut Read::by_ref(&mut stream).take(8), &mut std::io::sink()).unwrap();
+
         let mut info_hash = [0u8; 20];
         stream.read_exact(&mut info_hash).unwrap();
 
