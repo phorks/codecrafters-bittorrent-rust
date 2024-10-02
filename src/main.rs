@@ -3,7 +3,7 @@ use hex::encode;
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Map};
 use sha1::{Digest, Sha1};
-use std::{char, collections::HashMap, env, fs, ops::Index};
+use std::{char, collections::HashMap, env, fs, ops::Index, vec::IntoIter};
 
 // Available if you need it!
 // use serde_bencode
@@ -30,9 +30,15 @@ struct TorrentFileInfo {
     length: usize,
     name: String,
     #[serde(rename = "piece length")]
-    n_pieces: usize,
+    plength: usize,
     #[serde(with = "serde_bytes")]
     pieces: Vec<u8>,
+}
+
+impl TorrentFileInfo {
+    fn get_pieces(&self) -> impl Iterator<Item = &[u8]> {
+        return self.pieces.chunks(20);
+    }
 }
 
 #[allow(dead_code)]
@@ -97,6 +103,13 @@ fn decode_bencoded_value(encoded_value: &str) -> Decode {
     }
 }
 
+fn hashhex(data: &[u8]) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(data);
+    let hash = hasher.finalize();
+    return hex::encode(hash);
+}
+
 // Usage: your_bittorrent.sh decode "<encoded_value>"
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -112,15 +125,19 @@ fn main() {
     } else if command == "info" {
         let file_name = &args[2];
         let bytes = fs::read(file_name).unwrap();
-        let torrent_file: TorrentFile = serde_bencode::from_bytes(&bytes).unwrap();
-        println!("Tracker URL: {}", torrent_file.announce);
-        println!("Length: {}", torrent_file.info.length);
+        let tfile: TorrentFile = serde_bencode::from_bytes(&bytes).unwrap();
+        println!("Tracker URL: {}", tfile.announce);
+        println!("Length: {}", tfile.info.length);
+        println!(
+            "Info Hash: {}",
+            hashhex(&serde_bencode::to_bytes(&tfile.info).unwrap())
+        );
 
-        let mut hasher = Sha1::new();
-        let reencoded = serde_bencode::to_bytes(&torrent_file.info).unwrap();
-        hasher.update(reencoded);
-        let hash = hasher.finalize();
-        println!("Info Hash: {}", hex::encode(hash));
+        println!("Piece Length: {}", tfile.info.plength);
+        println!("Piece Hashes:");
+        for p in tfile.info.get_pieces() {
+            println!("{}", hex::encode(p));
+        }
     } else {
         println!("unknown command: {}", args[1])
     }
