@@ -140,10 +140,7 @@ impl<'a> PeerConnection<'a> {
         self.stream.flush().unwrap();
     }
 
-    pub fn download_piece<W>(&mut self, index: u32, output: &mut W)
-    where
-        W: Write,
-    {
+    pub fn download_piece(&mut self, index: u32) -> Option<Vec<u8>> {
         if !self.initiated {
             let PeerMessage::Bitfield = self.receive_message() else {
                 panic!("Didn't receive the bitfield message")
@@ -191,7 +188,7 @@ impl<'a> PeerConnection<'a> {
 
         if begin == 0 {
             // in case index >= number of the pieces
-            return;
+            return None;
         }
 
         let mut hasher = Sha1::new();
@@ -209,7 +206,7 @@ impl<'a> PeerConnection<'a> {
             }
         }
 
-        output.write_all(&piece_data).unwrap();
+        Some(piece_data)
     }
 
     fn u32_from_bytes(data: &[u8]) -> u32 {
