@@ -114,7 +114,6 @@ fn main() {
         let handshake = peer.handshake();
         println!("Peer ID: {}", hex::encode(handshake.peer_id));
     } else if command == "download_piece" {
-        return;
         let output = &args[3];
         let tfile = TorrentFile::from_file(&args[4]);
         let piece = u32::from_str(&args[5]).unwrap();
@@ -127,12 +126,14 @@ fn main() {
         let output = &args[3];
         let tfile = TorrentFile::from_file(&args[4]);
         let peer = tfile.find_peers().next().unwrap();
-        let mut output = fs::File::create(output).unwrap();
         let mut connection = peer.handshake();
+        let mut buffer = vec![];
         for piece in 0..tfile.info.n_pieces() as u32 {
             // println!("Downloading {}th piece", piece);
-            connection.download_piece(piece, &mut output);
+            connection.download_piece(piece, &mut buffer);
         }
+
+        fs::write(output, buffer).unwrap();
     } else {
         println!("unknown command: {}", args[1])
     }
