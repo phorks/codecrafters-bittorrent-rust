@@ -1,5 +1,4 @@
 use std::{
-    fs,
     io::{Cursor, Read, Write},
     net::{SocketAddrV4, TcpStream},
 };
@@ -65,10 +64,13 @@ pub struct PeerConnection<'a> {
 
 impl<'a> PeerConnection<'a> {
     fn receive_message(&mut self) -> PeerMessage {
+        // println!("receiving");
         let mut header = [0u8; 4];
         self.stream.read_exact(&mut header).unwrap();
 
         let mut length = Self::u32_from_bytes(&header);
+
+        // println!("received length: {0}", length);
 
         if length == 0 {
             // Messages of length zero are keepalives, and ignored. Keepalives are generally
@@ -79,9 +81,14 @@ impl<'a> PeerConnection<'a> {
 
         length -= 1;
 
+        // println!("received id: {0}", length);
+
         let mut id = [0u8];
         self.stream.read_exact(&mut id).unwrap();
         let id = id[0];
+
+        // println!("received id: {0}", id);
+
         let mut payload = vec![0u8; length as usize];
         self.stream.read_exact(&mut payload).unwrap();
         match id {
@@ -128,7 +135,10 @@ impl<'a> PeerConnection<'a> {
         self.stream.flush().unwrap();
     }
 
-    pub fn download_piece(&mut self, index: u32, output: &str) {
+    pub fn download_piece<W>(&mut self, index: u32, output: &mut W)
+    where
+        W: Write,
+    {
         let PeerMessage::Bitfield = self.receive_message() else {
             panic!("Didn't receive the bitfield message")
         };
@@ -140,12 +150,7 @@ impl<'a> PeerConnection<'a> {
         };
 
         let plength = self.peer.file.info.nth_plength(index as usize) as u32;
-        // println!(
-        //     "piece {} out of {} (plength: {})",
-        //     index,
-        //     self.peer.file.info.n_pieces(),
-        //     plength
-        // );
+
         let mut begin = 0u32;
 
         let mut piece_data = Vec::<u8>::with_capacity(plength as usize);
@@ -195,7 +200,7 @@ impl<'a> PeerConnection<'a> {
             }
         }
 
-        fs::write(output, &piece_data).unwrap();
+        output.write_all(&piece_data).unwrap();
     }
 
     fn u32_from_bytes(data: &[u8]) -> u32 {

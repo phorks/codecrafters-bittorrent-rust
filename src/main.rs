@@ -1,6 +1,6 @@
 use core::str;
 use serde_json::{self, Map};
-use std::{env, net::SocketAddrV4, str::FromStr};
+use std::{env, fs, net::SocketAddrV4, str::FromStr};
 use tfile::TorrentFile;
 mod consts;
 mod peer;
@@ -120,7 +120,18 @@ fn main() {
         let mut peers = tfile.find_peers();
         let peer = peers.next().unwrap();
         let mut connection = peer.handshake();
-        connection.download_piece(piece, output);
+        let mut output = fs::File::create(output).unwrap();
+        connection.download_piece(piece, &mut output);
+    } else if command == "download" {
+        let output = &args[3];
+        let tfile = TorrentFile::from_file(&args[4]);
+        let peer = tfile.find_peers().next().unwrap();
+        let mut output = fs::File::create(output).unwrap();
+        for piece in 0..tfile.info.n_pieces() as u32 {
+            let mut connection = peer.handshake();
+            // println!("Downloading {}th piece", piece);
+            connection.download_piece(piece, &mut output);
+        }
     } else {
         println!("unknown command: {}", args[1])
     }
