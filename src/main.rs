@@ -3,11 +3,16 @@ use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{self, Map};
 use sha1::{Digest, Sha1};
 use std::{
+    cell::LazyCell,
     env, fs,
-    net::{Ipv4Addr, SocketAddrV4},
+    io::{Read, Write},
+    net::{Ipv4Addr, SocketAddrV4, TcpStream},
+    str::FromStr,
 };
+use tokio::net::TcpSocket;
 
 const PEER_ID: &str = "00112233445566778899";
+const PROTOCOL_STRING: &str = "BitTorrent protocol";
 
 // Available if you need it!
 // use serde_bencode
@@ -34,6 +39,13 @@ impl TorrentFile {
         let bytes = fs::read(path).unwrap();
         return serde_bencode::from_bytes(&bytes).unwrap();
     }
+
+    fn create_peer(&self, addr: SocketAddrV4) -> Peer {
+        Peer {
+            addr: addr,
+            file: self,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,7 +63,7 @@ impl TorrentFileInfo {
         return self.pieces.chunks(20);
     }
 
-    fn get_hash(&self) -> [u8; 20] {
+    fn hash(&self) -> [u8; 20] {
         let data = &serde_bencode::to_bytes(&self).unwrap();
         let mut hasher = Sha1::new();
         hasher.update(data);
@@ -115,6 +127,27 @@ impl TrackerResponse {
         }
 
         peers
+    }
+}
+
+struct Peer<'a> {
+    addr: SocketAddrV4,
+    file: &'a TorrentFile,
+}
+
+impl<'a> Peer<'a> {
+    fn handshake(&self) -> [u8; 68] {
+        let mut stream = TcpStream::connect(self.addr).unwrap();
+
+        stream.write(&[PROTOCOL_STRING.len() as u8]).unwrap();
+        stream.write(PROTOCOL_STRING.as_bytes()).unwrap();
+        stream.write(&[0; 8]).unwrap();
+        stream.write(&self.file.info.hash()).unwrap();
+        stream.write(PEER_ID.as_bytes()).unwrap();
+
+        let mut response = [0; 68];
+        stream.read(&mut response).unwrap();
+        response
     }
 }
 
@@ -201,7 +234,7 @@ fn main() {
         let tfile = TorrentFile::from_file(&args[2]);
         println!("Tracker URL: {}", tfile.announce);
         println!("Length: {}", tfile.info.length);
-        println!("Info Hash: {}", hex::encode(&tfile.info.get_hash()));
+        println!("Info Hash: {}", hex::encode(&tfile.info.hash()));
 
         println!("Piece Length: {}", tfile.info.plength);
         println!("Piece Hashes:");
@@ -211,7 +244,7 @@ fn main() {
     } else if command == "peers" {
         let tfile = TorrentFile::from_file(&args[2]);
         let req = TrackerRequest {
-            info_hash: tfile.info.get_hash(),
+            info_hash: tfile.info.hash(),
             peer_id: PEER_ID.into(),
             port: 6881,
             uploaded: 0,
@@ -231,6 +264,11 @@ fn main() {
         for peer in resp.get_peers() {
             println!("{}", peer);
         }
+    } else if command == "handshake" {
+        let tfile = TorrentFile::from_file(&args[2]);
+        let peer = tfile.create_peer(SocketAddrV4::from_str(&args[3]).unwrap());
+        let handshake = peer.handshake();
+        println!("{}", hex::encode(handshake));
     } else {
         println!("unknown command: {}", args[1])
     }
