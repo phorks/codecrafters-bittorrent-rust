@@ -140,7 +140,10 @@ impl<'a> PeerConnection<'a> {
         self.stream.flush().unwrap();
     }
 
-    pub fn download_piece(&mut self, index: u32) -> Option<Vec<u8>> {
+    pub fn download_piece<W>(&mut self, index: u32, writer: &mut W)
+    where
+        W: Write,
+    {
         if !self.initiated {
             let PeerMessage::Bitfield = self.receive_message() else {
                 panic!("Didn't receive the bitfield message")
@@ -158,8 +161,6 @@ impl<'a> PeerConnection<'a> {
         let plength = self.peer.file.info.nth_plength(index as usize) as u32;
 
         let mut begin = 0u32;
-
-        let mut piece_data = Vec::<u8>::with_capacity(plength as usize);
 
         while begin < plength {
             let length = if begin + BLOCK_SIZE < plength {
@@ -181,32 +182,30 @@ impl<'a> PeerConnection<'a> {
             };
 
             let mut block_data = Cursor::new(payload.block);
-            std::io::copy(&mut block_data, &mut piece_data).unwrap();
+            std::io::copy(&mut block_data, writer).unwrap();
 
             begin += length;
         }
 
         if begin == 0 {
             // in case index >= number of the pieces
-            return None;
+            return;
         }
 
-        let mut hasher = Sha1::new();
-        hasher.update(&piece_data);
-        let computed_hash = hasher.finalize();
-        let piece_hash = self.peer.file.info.pieces().nth(index as usize).unwrap();
+        // let mut hasher = Sha1::new();
+        // hasher.update(&piece_data);
+        // let computed_hash = hasher.finalize();
+        // let piece_hash = self.peer.file.info.pieces().nth(index as usize).unwrap();
 
-        if computed_hash.len() != piece_hash.len() {
-            panic!("Hash mismatch");
-        }
+        // if computed_hash.len() != piece_hash.len() {
+        //     panic!("Hash mismatch");
+        // }
 
-        for i in 0..computed_hash.len() {
-            if computed_hash[i] != piece_hash[i] {
-                panic!("Hash mismatch");
-            }
-        }
-
-        Some(piece_data)
+        // for i in 0..computed_hash.len() {
+        //     if computed_hash[i] != piece_hash[i] {
+        //         panic!("Hash mismatch");
+        //     }
+        // }
     }
 
     fn u32_from_bytes(data: &[u8]) -> u32 {

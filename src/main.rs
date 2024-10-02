@@ -120,23 +120,20 @@ fn main() {
         let mut peers = tfile.find_peers();
         let peer = peers.next().unwrap();
         let mut connection = peer.handshake();
-        if let Some(downloaded) = connection.download_piece(piece) {
-            fs::write(output, downloaded).unwrap();
-        }
+        let mut output = fs::File::create(output).unwrap();
+        connection.download_piece(piece, &mut output);
     } else if command == "download" {
         let output = &args[3];
         let tfile = TorrentFile::from_file(&args[4]);
         let peer = tfile.find_peers().next().unwrap();
         let mut connection = peer.handshake();
-        let mut buffers = vec![];
+        let mut buffer = vec![];
         for piece in 0..tfile.info.n_pieces() as u32 {
             // println!("Downloading {}th piece", piece);
-            if let Some(downloaded) = connection.download_piece(piece) {
-                buffers.push(downloaded);
-            }
+            connection.download_piece(piece, &mut buffer);
         }
 
-        fs::write(output, buffers.concat()).unwrap();
+        fs::write(output, buffer).unwrap();
     } else {
         println!("unknown command: {}", args[1])
     }
