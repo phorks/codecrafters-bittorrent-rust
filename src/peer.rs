@@ -140,15 +140,28 @@ impl<'a> PeerConnection<'a> {
         };
 
         let plength = self.peer.file.info.nth_plength(index as usize) as u32;
-        let mut downloaded = 0u32;
+        // println!(
+        //     "piece {} out of {} (plength: {})",
+        //     index,
+        //     self.peer.file.info.n_pieces(),
+        //     plength
+        // );
+        let mut begin = 0u32;
 
         let mut piece_data = Vec::<u8>::with_capacity(plength as usize);
 
-        while downloaded < plength {
-            let length = u32::min(BLOCK_SIZE, plength - downloaded);
+        while begin < plength {
+            let length = if begin + BLOCK_SIZE < plength {
+                BLOCK_SIZE
+            } else {
+                plength - begin
+            };
+
+            // println!("Downloading: {}, {}, {}", index, begin, length);
+
             self.send_message(PeerMessage::Request(RequestPayload {
                 index,
-                begin: downloaded,
+                begin,
                 length,
             }));
 
@@ -159,7 +172,12 @@ impl<'a> PeerConnection<'a> {
             let mut block_data = Cursor::new(payload.block);
             std::io::copy(&mut block_data, &mut piece_data).unwrap();
 
-            downloaded += length;
+            begin += length;
+        }
+
+        if begin == 0 {
+            // in case index >= number of the pieces
+            return;
         }
 
         let mut hasher = Sha1::new();
