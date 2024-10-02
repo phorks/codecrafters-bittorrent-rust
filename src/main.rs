@@ -1,6 +1,7 @@
 use hex::encode;
+use serde::Deserialize;
 use serde_json::{self, Map};
-use std::{collections::HashMap, env, ops::Index};
+use std::{char, collections::HashMap, env, fs, ops::Index};
 
 // Available if you need it!
 // use serde_bencode
@@ -16,9 +17,25 @@ impl Decode {
     }
 }
 
+#[derive(Deserialize)]
+struct TorrentFile {
+    announce: String,
+    info: TorrentFileInfo,
+}
+
+#[derive(Deserialize)]
+struct TorrentFileInfo {
+    length: usize,
+    name: String,
+    #[serde(rename = "piece length")]
+    n_pieces: usize,
+}
+
 #[allow(dead_code)]
 fn decode_bencoded_value(encoded_value: &str) -> Decode {
     // If encoded_value starts with a digit, it's a number
+    let x: &[u8];
+
     let next = encoded_value.chars().next().unwrap();
     if next.is_digit(10) {
         // Example: "5:hello" -> "hello"
@@ -89,6 +106,13 @@ fn main() {
         let encoded_value = &args[2];
         let decoded_value = decode_bencoded_value(encoded_value);
         println!("{}", decoded_value.value.to_string());
+    } else if command == "info" {
+        let file_name = &args[2];
+        let bytes = fs::read(file_name).unwrap();
+        let torrent_file: TorrentFile = serde_bencode::from_bytes(&bytes).unwrap();
+        // let decoded_value = decode_bencoded_value(&encoded_value);
+        println!("Tracker URL: {}", torrent_file.announce);
+        println!("Length: {}", torrent_file.info.length);
     } else {
         println!("unknown command: {}", args[1])
     }
