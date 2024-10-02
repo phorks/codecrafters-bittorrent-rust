@@ -114,6 +114,7 @@ fn main() {
         let handshake = peer.handshake();
         println!("Peer ID: {}", hex::encode(handshake.peer_id));
     } else if command == "download_piece" {
+        return;
         let output = &args[3];
         let tfile = TorrentFile::from_file(&args[4]);
         let piece = u32::from_str(&args[5]).unwrap();
