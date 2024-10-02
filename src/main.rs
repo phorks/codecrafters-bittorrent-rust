@@ -1,6 +1,8 @@
+use bytes::Bytes;
 use hex::encode;
 use serde::Deserialize;
 use serde_json::{self, Map};
+use sha1::{Digest, Sha1};
 use std::{char, collections::HashMap, env, fs, ops::Index};
 
 // Available if you need it!
@@ -29,6 +31,8 @@ struct TorrentFileInfo {
     name: String,
     #[serde(rename = "piece length")]
     n_pieces: usize,
+    #[serde(with = "serde_bytes")]
+    pieces: Vec<u8>,
 }
 
 #[allow(dead_code)]
@@ -97,7 +101,6 @@ fn decode_bencoded_value(encoded_value: &str) -> Decode {
 fn main() {
     let args: Vec<String> = env::args().collect();
     let command = &args[1];
-
     if command == "decode" {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         // println!("Logs from your program will appear here!");
@@ -110,9 +113,13 @@ fn main() {
         let file_name = &args[2];
         let bytes = fs::read(file_name).unwrap();
         let torrent_file: TorrentFile = serde_bencode::from_bytes(&bytes).unwrap();
-        // let decoded_value = decode_bencoded_value(&encoded_value);
         println!("Tracker URL: {}", torrent_file.announce);
         println!("Length: {}", torrent_file.info.length);
+
+        let mut hasher = Sha1::new();
+        hasher.update(torrent_file.info.pieces);
+        let hash = hasher.finalize();
+        println!("Info Hash: {}", hex::encode(hash));
     } else {
         println!("unknown command: {}", args[1])
     }
