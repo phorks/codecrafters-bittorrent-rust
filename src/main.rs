@@ -5,8 +5,19 @@ use std::{env, ops::Index};
 // Available if you need it!
 // use serde_bencode
 
+struct Decode {
+    length: usize,
+    value: serde_json::Value,
+}
+
+impl Decode {
+    fn new(length: usize, value: serde_json::Value) -> Self {
+        Self { length, value }
+    }
+}
+
 #[allow(dead_code)]
-fn decode_bencoded_value(encoded_value: &str) -> serde_json::Value {
+fn decode_bencoded_value(encoded_value: &str) -> Decode {
     // If encoded_value starts with a digit, it's a number
     let next = encoded_value.chars().next().unwrap();
     if next.is_digit(10) {
@@ -15,16 +26,29 @@ fn decode_bencoded_value(encoded_value: &str) -> serde_json::Value {
         let number_string = &encoded_value[..colon_index];
         let number = number_string.parse::<i64>().unwrap();
         let string = &encoded_value[colon_index + 1..colon_index + 1 + number as usize];
-        return serde_json::Value::String(string.to_string());
-    }
-    else if next == 'i' {
+        return Decode::new(
+            colon_index + 1 + (number as usize),
+            serde_json::Value::String(string.to_string()),
+        );
+    } else if next == 'i' {
         let e_index = encoded_value.find('e').unwrap();
         let digits = &encoded_value[1..e_index];
-        return digits.parse::<i64>().unwrap().into();
-        // let e_ = encode_value.
-        // let digits = encoded_value.chars().take_while(|ch| *ch != 'e').into();
-        // let x: &str = digits;
-        // return digits.parse::<i64>();
+        return Decode::new(e_index + 1, digits.parse::<i64>().unwrap().into());
+    } else if next == 'l' {
+        let mut remaining = &encoded_value[1..];
+        let mut items = vec![];
+        let mut length = 1;
+        loop {
+            if remaining.chars().next().unwrap() == 'e' {
+                length += 1;
+                return Decode::new(length, items.into());
+            }
+
+            let next_item = decode_bencoded_value(remaining);
+            remaining = &remaining[next_item.length..];
+            length += next_item.length;
+            items.push(next_item.value);
+        }
     } else {
         panic!("Unhandled encoded value: {}", encoded_value)
     }
@@ -42,7 +66,7 @@ fn main() {
         // Uncomment this block to pass the first stage
         let encoded_value = &args[2];
         let decoded_value = decode_bencoded_value(encoded_value);
-        println!("{}", decoded_value.to_string());
+        println!("{}", decoded_value.value.to_string());
     } else {
         println!("unknown command: {}", args[1])
     }
