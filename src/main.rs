@@ -134,7 +134,7 @@ struct Peer<'a> {
 }
 
 impl<'a> Peer<'a> {
-    fn handshake(&self) -> [u8; 68] {
+    fn handshake(&self) -> Handshake {
         let mut stream = TcpStream::connect(self.addr).unwrap();
 
         stream.write(&[PROTOCOL_STRING.len() as u8]).unwrap();
@@ -143,10 +143,29 @@ impl<'a> Peer<'a> {
         stream.write(&self.file.info.hash()).unwrap();
         stream.write(PEER_ID.as_bytes()).unwrap();
 
-        let mut response = [0; 68];
-        stream.read(&mut response).unwrap();
-        response
+        let mut n_pstring = [0u8];
+        stream.read_exact(&mut n_pstring).unwrap();
+        let mut pstring = vec![0u8; n_pstring[0] as usize];
+        stream.read_exact(&mut pstring).unwrap();
+
+        let mut info_hash = [0u8; 20];
+        stream.read_exact(&mut info_hash).unwrap();
+
+        let mut peer_id = [0u8; 20];
+        stream.read_exact(&mut peer_id).unwrap();
+
+        Handshake {
+            protocol: pstring,
+            info_hash,
+            peer_id,
+        }
     }
+}
+
+struct Handshake {
+    protocol: Vec<u8>,
+    info_hash: [u8; 20],
+    peer_id: [u8; 20],
 }
 
 fn bool_to_u8<S>(b: &bool, s: S) -> Result<S::Ok, S::Error>
@@ -266,7 +285,7 @@ fn main() {
         let tfile = TorrentFile::from_file(&args[2]);
         let peer = tfile.create_peer(SocketAddrV4::from_str(&args[3]).unwrap());
         let handshake = peer.handshake();
-        println!("{}", hex::encode(handshake));
+        println!("Peer ID: {}", hex::encode(handshake.peer_id));
     } else {
         println!("unknown command: {}", args[1])
     }
