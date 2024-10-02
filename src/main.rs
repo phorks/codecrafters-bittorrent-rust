@@ -128,8 +128,9 @@ fn main() {
         let peer = tfile.find_peers().next().unwrap();
         let mut connection = peer.handshake();
         let mut buffer = vec![];
+        println!("Downloading {} pieces", tfile.info.n_pieces());
         for piece in 0..tfile.info.n_pieces() as u32 {
-            // println!("Downloading {}th piece", piece);
+            println!("Downloading {}th piece", piece);
             connection.download_piece(piece, &mut buffer);
         }
 

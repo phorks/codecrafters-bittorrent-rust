@@ -140,7 +140,7 @@ impl<'a> PeerConnection<'a> {
         self.stream.flush().unwrap();
     }
 
-    pub fn download_piece<W>(&mut self, index: u32, writer: &mut W)
+    pub fn download_piece<W>(&mut self, index: u32, output: &mut W)
     where
         W: Write,
     {
@@ -162,6 +162,8 @@ impl<'a> PeerConnection<'a> {
 
         let mut begin = 0u32;
 
+        let mut piece_data = Vec::<u8>::with_capacity(plength as usize);
+
         while begin < plength {
             let length = if begin + BLOCK_SIZE < plength {
                 BLOCK_SIZE
@@ -182,7 +184,7 @@ impl<'a> PeerConnection<'a> {
             };
 
             let mut block_data = Cursor::new(payload.block);
-            std::io::copy(&mut block_data, writer).unwrap();
+            std::io::copy(&mut block_data, &mut piece_data).unwrap();
 
             begin += length;
         }
@@ -192,20 +194,22 @@ impl<'a> PeerConnection<'a> {
             return;
         }
 
-        // let mut hasher = Sha1::new();
-        // hasher.update(&piece_data);
-        // let computed_hash = hasher.finalize();
-        // let piece_hash = self.peer.file.info.pieces().nth(index as usize).unwrap();
+        let mut hasher = Sha1::new();
+        hasher.update(&piece_data);
+        let computed_hash = hasher.finalize();
+        let piece_hash = self.peer.file.info.pieces().nth(index as usize).unwrap();
 
-        // if computed_hash.len() != piece_hash.len() {
-        //     panic!("Hash mismatch");
-        // }
+        if computed_hash.len() != piece_hash.len() {
+            panic!("Hash mismatch");
+        }
 
-        // for i in 0..computed_hash.len() {
-        //     if computed_hash[i] != piece_hash[i] {
-        //         panic!("Hash mismatch");
-        //     }
-        // }
+        for i in 0..computed_hash.len() {
+            if computed_hash[i] != piece_hash[i] {
+                panic!("Hash mismatch");
+            }
+        }
+
+        output.write_all(&piece_data).unwrap();
     }
 
     fn u32_from_bytes(data: &[u8]) -> u32 {
