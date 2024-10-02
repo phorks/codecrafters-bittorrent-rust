@@ -1,6 +1,6 @@
 use hex::encode;
-use serde_json;
-use std::{env, ops::Index};
+use serde_json::{self, Map};
+use std::{collections::HashMap, env, ops::Index};
 
 // Available if you need it!
 // use serde_bencode
@@ -48,6 +48,28 @@ fn decode_bencoded_value(encoded_value: &str) -> Decode {
             remaining = &remaining[next_item.length..];
             length += next_item.length;
             items.push(next_item.value);
+        }
+    } else if next == 'd' {
+        let mut remaining = &encoded_value[1..];
+        let mut dict = Map::new();
+        let mut length = 1;
+        loop {
+            if remaining.chars().next().unwrap() == 'e' {
+                length += 1;
+                return Decode::new(length, serde_json::Value::Object(dict));
+            }
+
+            let next_key = decode_bencoded_value(remaining);
+            if let serde_json::Value::String(key_str) = next_key.value {
+                length += next_key.length;
+                remaining = &remaining[next_key.length..];
+                let next_value = decode_bencoded_value(remaining);
+                length += next_value.length;
+                remaining = &remaining[next_value.length..];
+                dict.insert(key_str, next_value.value);
+            } else {
+                panic!("Expected string key");
+            }
         }
     } else {
         panic!("Unhandled encoded value: {}", encoded_value)
