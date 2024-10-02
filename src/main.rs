@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use hex::encode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{self, Map};
 use sha1::{Digest, Sha1};
 use std::{char, collections::HashMap, env, fs, ops::Index};
@@ -19,13 +19,13 @@ impl Decode {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct TorrentFile {
     announce: String,
     info: TorrentFileInfo,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct TorrentFileInfo {
     length: usize,
     name: String,
@@ -117,7 +117,8 @@ fn main() {
         println!("Length: {}", torrent_file.info.length);
 
         let mut hasher = Sha1::new();
-        hasher.update(torrent_file.info.pieces);
+        let reencoded = serde_bencode::to_bytes(&torrent_file.info).unwrap();
+        hasher.update(reencoded);
         let hash = hasher.finalize();
         println!("Info Hash: {}", hex::encode(hash));
     } else {
