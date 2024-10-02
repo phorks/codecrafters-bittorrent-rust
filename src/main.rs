@@ -210,7 +210,7 @@ impl<'a> PeerConnection<'a> {
         let length = Self::u32_from_bytes(&header);
         let id = header[4];
 
-        let mut payload = vec![0u8; length as usize];
+        let mut payload = vec![0u8; (length - 5) as usize];
         self.stream.read_exact(&mut payload).unwrap();
 
         match id {
