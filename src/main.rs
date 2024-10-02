@@ -1,18 +1,10 @@
-use bytes::Bytes;
 use core::str;
-use hex::encode;
-use reqwest::Url;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{self, Map};
 use sha1::{Digest, Sha1};
 use std::{
-    char,
-    collections::HashMap,
     env, fs,
-    net::{IpAddr, Ipv4Addr, SocketAddrV4},
-    ops::Index,
-    path::{Path, PathBuf},
-    vec::IntoIter,
+    net::{Ipv4Addr, SocketAddrV4},
 };
 
 const PEER_ID: &str = "00112233445566778899";
@@ -136,8 +128,6 @@ where
 #[allow(dead_code)]
 fn decode_bencoded_value(encoded_value: &str) -> Decode {
     // If encoded_value starts with a digit, it's a number
-    let x: &[u8];
-
     let next = encoded_value.chars().next().unwrap();
     if next.is_digit(10) {
         // Example: "5:hello" -> "hello"
@@ -195,13 +185,6 @@ fn decode_bencoded_value(encoded_value: &str) -> Decode {
     }
 }
 
-fn hashhex(data: &[u8]) -> String {
-    let mut hasher = Sha1::new();
-    hasher.update(data);
-    let hash = hasher.finalize();
-    return hex::encode(hash);
-}
-
 // Usage: your_bittorrent.sh decode "<encoded_value>"
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -215,7 +198,7 @@ fn main() {
         let decoded_value = decode_bencoded_value(encoded_value);
         println!("{}", decoded_value.value.to_string());
     } else if command == "info" {
-        let tfile = TorrentFile::from_file(&args[1]);
+        let tfile = TorrentFile::from_file(&args[2]);
         println!("Tracker URL: {}", tfile.announce);
         println!("Length: {}", tfile.info.length);
         println!("Info Hash: {}", hex::encode(&tfile.info.get_hash()));
