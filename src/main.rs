@@ -111,30 +111,38 @@ fn main() {
     } else if command == "handshake" {
         let tfile = TorrentFile::from_file(&args[2]);
         let peer = tfile.create_peer(SocketAddrV4::from_str(&args[3]).unwrap());
-        let handshake = peer.handshake();
+        let handshake = peer.handshake().unwrap();
         println!("Peer ID: {}", hex::encode(handshake.peer_id));
     } else if command == "download_piece" {
         let output = &args[3];
         let tfile = TorrentFile::from_file(&args[4]);
         let piece = u32::from_str(&args[5]).unwrap();
-        let mut peers = tfile.find_peers();
-        let peer = peers.next().unwrap();
-        let mut connection = peer.handshake();
-        let mut output = fs::File::create(output).unwrap();
-        connection.download_piece(piece, &mut output);
+        let peers = tfile.find_peers();
+        for peer in peers {
+            if let Ok(mut conn) = peer.handshake() {
+                let mut output = fs::File::create(output).unwrap();
+                conn.download_piece(piece, &mut output);
+            }
+        }
     } else if command == "download" {
         let output = &args[3];
         let tfile = TorrentFile::from_file(&args[4]);
-        let peer = tfile.find_peers().next().unwrap();
-        let mut connection = peer.handshake();
+        let peers = tfile.find_peers();
         let mut buffer = vec![];
-        println!("Downloading {} pieces", tfile.info.n_pieces());
-        for piece in 0..tfile.info.n_pieces() as u32 {
-            println!("Downloading {}th piece", piece);
-            connection.download_piece(piece, &mut buffer);
+        for peer in peers {
+            if let Ok(mut conn) = peer.handshake() {
+                // println!("Downloading {} pieces", tfile.info.n_pieces());
+                for piece in 0..tfile.info.n_pieces() as u32 {
+                    // println!("Downloading {}th piece", piece);
+                    conn.download_piece(piece, &mut buffer);
+                }
+                // println!("Writing to file! {}", output);
+                fs::write(output, buffer).unwrap();
+                break;
+            } else {
+                println!("Failed peer");
+            }
         }
-
-        fs::write(output, buffer).unwrap();
     } else {
         println!("unknown command: {}", args[1])
     }

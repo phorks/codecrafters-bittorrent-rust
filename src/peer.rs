@@ -20,7 +20,7 @@ impl<'a> Peer<'a> {
         Self { addr, file }
     }
 
-    pub fn handshake(&self) -> PeerConnection {
+    pub fn handshake(&self) -> Result<PeerConnection, std::io::Error> {
         let mut stream = TcpStream::connect(self.addr).unwrap();
 
         stream.write_all(&[PROTOCOL_STRING.len() as u8]).unwrap();
@@ -31,7 +31,7 @@ impl<'a> Peer<'a> {
         stream.flush().unwrap();
 
         let mut n_pstring = [0u8];
-        stream.read_exact(&mut n_pstring).unwrap();
+        stream.read_exact(&mut n_pstring)?;
         let mut pstring = vec![0u8; n_pstring[0] as usize];
         stream.read_exact(&mut pstring).unwrap();
 
@@ -44,14 +44,14 @@ impl<'a> Peer<'a> {
         let mut peer_id = [0u8; 20];
         stream.read_exact(&mut peer_id).unwrap();
 
-        PeerConnection {
+        Ok(PeerConnection {
             protocol: pstring,
             info_hash,
             peer_id,
             stream,
             peer: self,
             initiated: false,
-        }
+        })
     }
 }
 
@@ -160,6 +160,11 @@ impl<'a> PeerConnection<'a> {
 
         let plength = self.peer.file.info.nth_plength(index as usize) as u32;
 
+        // println!(
+        //     "Generic plength: {}, this plength: {}",
+        //     self.peer.file.info.plength, plength
+        // );
+
         let mut begin = 0u32;
 
         let mut piece_data = Vec::<u8>::with_capacity(plength as usize);
@@ -182,6 +187,7 @@ impl<'a> PeerConnection<'a> {
             let PeerMessage::Piece(payload) = self.receive_message() else {
                 panic!("Didn't receive the piece message")
             };
+            // println!("Received the piece message");
 
             let mut block_data = Cursor::new(payload.block);
             std::io::copy(&mut block_data, &mut piece_data).unwrap();
